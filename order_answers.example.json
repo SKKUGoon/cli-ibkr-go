@@ -1,0 +1,10 @@
+{
+  "o163": true,
+  "price exceeds the Percentage constraint": true,
+  "o451": true,
+  "exceeds the Total Value Limit": true,
+  "o354": true,
+  "You are submitting an order without market data": true,
+  "o10331": true,
+  "You are about to submit a stop order": true
+}

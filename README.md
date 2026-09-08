@@ -1,0 +1,396 @@
+# IBKR Go CLI
+
+Go port of the existing `ibkr-rs` OAuth-only REST implementation. The executable is named `ibkr`.
+The first migration preserves the existing command layout and optional database behavior.
+The common/admin command split is intentionally deferred until parity is established.
+
+## Build and check
+
+```sh
+go build -o bin/ibkr ./cmd/ibkr
+./bin/ibkr --help
+go test -race ./...
+go vet ./...
+```
+
+Use Go 1.25 or newer. OpenSSL is needed only for `oauth generate-materials`;
+normal authentication uses Go's RSA, HMAC, PEM, ASN.1, and big-integer implementations.
+No Rust executable or runtime is used.
+
+## Layout
+
+- `ibkr/`: reusable OAuth, session cache, REST endpoints, and order/market-data models.
+- `internal/cli/`: command arguments, output, warning replies, interactive VWAP utility.
+- `internal/config/`: dotenv loading and environment configuration.
+- `internal/database/`: optional personal warehouse queries, isolated from the REST package.
+- `internal/materials/`: OpenSSL key generation.
+- `cmd/ibkr/`: executable entry point.
+
+See [migration notes](docs/MIGRATION.md) for parity scope and deliberate differences.
+
+
+`ibkr` is an OAuth-only IBKR CLI for Airflow tasks. Airflow invokes one command, reads exit status, and handles scheduling or retries.
+
+Success writes JSON to stdout and exits `0`. Failures write diagnostics to stderr and exit nonzero.
+Most commands leave persistence to Airflow: use stdout or `--output`, then let the DAG write results to storage. `fetch-history` also writes bars to `warehouse.ibkr_bars` when `IBKR_DATABASE` is configured.
+
+## Explicit Non-Goals
+
+- No Client Portal Gateway.
+- No HTTP job API.
+- No Redis queue. Redis is used only as an optional OAuth Live Session Token cache.
+- No Kafka.
+- No WebSocket streaming.
+- No watchlist, scanner, or broad contract lookup modules. Stock symbol-to-conid lookup is supported.
+- No automatic fallback auth path.
+
+## Example
+
+For local development, copy `.env.example` to `.env` and fill in the IBKR values. `ibkr` loads `.env` automatically at startup. On a server, provide the same `IBKR_*` variables through the process environment or your scheduler's secret manager.
+
+### 1. Generate OAuth materials
+
+This creates the local OpenSSL materials required by the IBKR OAuth setup. Send only `public_signature.pem`, `public_encryption.pem`, and `dhparam.pem` to IBKR. Never send or commit the generated private key files.
+
+```bash
+# Local Development
+go run ./cmd/ibkr oauth generate-materials --out-dir ./secrets/ibkr-oauth
+
+# Server Usage
+ibkr oauth generate-materials --out-dir ./secrets/ibkr-oauth
+```
+
+Use `--force` only when you intentionally want to replace existing files:
+
+```bash
+# Local Development
+go run ./cmd/ibkr oauth generate-materials --out-dir ./secrets/ibkr-oauth --force
+
+# Server Usage
+ibkr oauth generate-materials --out-dir ./secrets/ibkr-oauth --force
+```
+
+### 2. Initialize the brokerage session
+
+This asks IBKR to initialize the authenticated brokerage session before protected account, order, or market-data calls. It uses the configured OAuth credentials and writes IBKR's JSON response to stdout.
+
+```bash
+# Local Development
+go run ./cmd/ibkr init-session
+
+# Server Usage
+ibkr init-session
+```
+
+### 3. Look up a stock conid
+
+This looks up an active row in `warehouse.conids` first, then falls back to IBKR's stock lookup endpoint when the symbol is not cached or the database is unavailable. It returns the selected symbol, English name, conid, and exchange. If multiple contracts match, the command fails so the caller can provide a more specific `--exchange` or filter choice.
+
+```bash
+# Local Development
+go run ./cmd/ibkr stock-conid --symbol AAPL --exchange NASDAQ
+
+# Server Usage
+ibkr stock-conid --symbol AAPL --exchange NASDAQ
+```
+
+### 4. Fetch historical bars
+
+This requests historical market-data bars for a known IBKR conid. By default the JSON response goes to stdout; use `--output` when Airflow should hand a file to a downstream task. If `IBKR_DATABASE` is set and connectable, returned bars are also upserted into `warehouse.ibkr_bars`; database persistence is best-effort and does not change the JSON output.
+
+```bash
+# Local Development
+go run ./cmd/ibkr fetch-history --conid 265598 --period 1d --bar 1min
+
+# Server Usage
+ibkr fetch-history --conid 265598 --period 1d --bar 1min --output /tmp/ibkr-history.json
+```
+
+### 5. Place an order
+
+Order placement is non-interactive. The order input contains one order object or an array of order objects, passed inline with `--orders-json`. If IBKR returns warning prompts, the answers input must explicitly accept them by message substring or message id. Answers are layered from built-in defaults, the optional `IBKR_ORDERS_ANSWER_JSON` file path, optional `--answers-file`, and optional `--answers-json`; later layers override duplicate keys.
+Run `init-session` before `order algos`, `order place`, `order modify`, or other protected IServer order calls.
+
+Normal orders omit IB Algo fields:
+
+```json
+{
+  "conid": 265598,
+  "side": "BUY",
+  "quantity": 1,
+  "order_type": "MKT",
+  "acct_id": "DU123456",
+  "coid": "example-20260503-0001"
+}
+```
+
+```json
+{
+  "price exceeds the Percentage constraint": true,
+  "o354": true
+}
+```
+
+```bash
+ibkr order place --account-id DU123456 --orders-json '{"conid":265598,"side":"BUY","quantity":1,"order_type":"MKT","acct_id":"DU123456","coid":"example-20260503-0001"}' --answers-file ./answers.json
+```
+
+The same request with inline answers:
+
+```bash
+ibkr order place --account-id DU123456 --orders-json '{"conid":265598,"side":"BUY","quantity":1,"order_type":"MKT","acct_id":"DU123456","coid":"example-20260503-0001"}' --answers-json '{"o354":true}'
+```
+
+To inspect IB Algo strategies available for a contract, query the Web API algo endpoint after `init-session`.
+Specify up to 8 case-sensitive algo ids with repeated `--algo` flags.
+
+```bash
+ibkr order algos --conid 265598 --algo Adaptive --algo Vwap --add-description --add-params --pretty
+```
+
+### Trade executions
+
+Use `trades` to retrieve recent trade executions. This is execution history, not market-data history; use `fetch-history` for historical bars. IBKR supports up to 7 days for this endpoint and advises calling it once per session.
+
+`brokerage-accounts` calls `/iserver/accounts`; this is distinct from the
+`accounts` command, which calls `/portfolio/accounts`. IBKR may return an empty
+trade list until brokerage account context has been loaded for the session. For
+scripts and Airflow jobs, keep the warm-up sequence explicit:
+
+```bash
+ibkr init-session
+ibkr brokerage-accounts
+ibkr trades
+sleep 5
+ibkr trades --account-id DU123456 --days 7 --pretty
+```
+
+The five-second delay is orchestration policy rather than hidden CLI behavior.
+Portfolio endpoints have their own preflight: call `accounts` before
+`portfolio-summary`, `ledger`, `positions`, or `positions-live` for an
+individual account. For the IServer `account-summary` command, use
+`brokerage-accounts` as the account-context preflight.
+
+### Account P&L and near-real-time positions
+
+```bash
+ibkr brokerage-accounts
+ibkr account-pnl --pretty
+
+ibkr accounts
+ibkr positions-live --account-id DU123456 --pretty
+```
+
+`positions-live` uses the uncached REST endpoint and supports optional `--model`,
+`--sort`, and `--direction a|d` filters. It does not open a WebSocket.
+
+### Interactive quick VWAP order
+
+`quick-vwap-order` is an operator utility rather than an Airflow command. It is
+listed separately at the bottom of `ibkr --help`. Missing values are prompted;
+flags can prefill common values. The utility resolves the ticker directly with
+IBKR, displays the complete payload, defaults submission confirmation to **no**,
+and prompts separately for every warning returned by IBKR.
+
+```bash
+ibkr --env-file /secure/path/ibkr.env init-session
+ibkr --env-file /secure/path/ibkr.env brokerage-accounts
+ibkr --env-file /secure/path/ibkr.env quick-vwap-order
+```
+
+The fixed order fields are `orderType=LMT`, `tif=DAY`, and `strategy=Vwap`.
+Start and end times default to `15:30:00 US/Eastern` and
+`16:00:00 US/Eastern`; they remain editable. `IBKR_ACCOUNT_ID` and
+`IBKR_QUICK_ORDER_PREFIX` provide optional prompt defaults. This utility does
+not connect to Postgres and does not persist the order locally. The brokerage
+preflight remains a separate command so its response and any failure stay
+visible.
+
+Algo orders use the same order placement command with `strategy` and `strategy_parameters` in the order JSON:
+
+```json
+{
+  "conid": 265598,
+  "side": "BUY",
+  "quantity": 100,
+  "order_type": "LMT",
+  "price": 185.5,
+  "acct_id": "DU123456",
+  "tif": "DAY",
+  "strategy": "Vwap",
+  "strategy_parameters": {
+    "maxPctVol": 0.1,
+    "startTime": "09:30:00 EST",
+    "endTime": "15:30:00 EST",
+    "allowPastEndTime": true
+  }
+}
+```
+
+## Configuration
+
+Configuration comes from `.env` and process environment variables. Local development can use a `.env` file in the current directory. Server and Airflow usage should provide the same variables through the runtime environment or a secret manager.
+
+```sh
+cp .env.example .env
+```
+
+By default, `ibkr` searches for `.env` from the current directory upward. To use a specific dotenv file, pass `--env-file`; values already present in the process environment take precedence over values in the file.
+
+```sh
+ibkr --env-file /secure/path/ibkr.env init-session
+```
+
+To inspect the effective supported `IBKR_*` variables without validating credentials or calling IBKR, run:
+
+```sh
+ibkr --env-file /secure/path/ibkr.env env
+```
+
+Secret values are fully redacted in the output.
+
+```text
+IBKR_BASE_URL=https://api.ibkr.com/v1/api
+IBKR_CONSUMER_KEY=<from IBKR>
+IBKR_REALM=limited_poa
+IBKR_ACCESS_TOKEN=<from IBKR self-service portal>
+IBKR_ACCESS_TOKEN_SECRET=<from IBKR self-service portal>
+IBKR_SIGNATURE_KEY_PATH=/secure/path/private_signature.pem
+IBKR_ENCRYPTION_KEY_PATH=/secure/path/private_encryption.pem
+IBKR_DH_PARAM_PATH=/secure/path/dhparam.pem
+IBKR_TIMEOUT_SECONDS=30
+IBKR_ACCOUNT_ID=DU123456
+IBKR_QUICK_ORDER_PREFIX=kappa-k1
+IBKR_DATABASE=postgres://user:password@host:5432/dbname
+IBKR_LST_CACHE_MODE=redis
+IBKR_REDIS_URL=redis://user:password@redis.example.internal:6379/0
+IBKR_REDIS_KEY_PREFIX=ibkr:oauth:lst
+IBKR_LST_REFRESH_SKEW_SECONDS=60
+IBKR_LST_LOCK_TTL_SECONDS=15
+```
+
+## Live Session Token Cache
+
+`ibkr` routes all Live Session Token lookup through one OAuth cache provider. Cache modes are:
+
+- `redis`: share validated LSTs across short-lived CLI processes. If Redis is unavailable, the command fails instead of silently requesting an uncached token.
+- `memory`: reuse the LST only inside the current CLI process. This is the default.
+- `disabled`: request a fresh LST for each protected REST call.
+
+Redis stores the validated LST payload with a TTL ending before IBKR expiry. The cache key uses hashed fingerprints of the base URL, consumer key, access token, and realm, and never stores raw identifiers in the key. Treat Redis as a secrets-adjacent system: use ACLs, private networking or TLS, restricted database access, and avoid broad shared Redis instances.
+
+## Airflow Example
+
+```python
+BashOperator(
+    task_id="lookup_aapl_conid",
+    bash_command="ibkr stock-conid --symbol AAPL --output /tmp/aapl-conid.json",
+    env={
+        "IBKR_BASE_URL": "{{ var.value.ibkr_base_url }}",
+        "IBKR_CONSUMER_KEY": "{{ var.value.ibkr_consumer_key }}",
+        "IBKR_REALM": "limited_poa",
+        "IBKR_ACCESS_TOKEN": "{{ var.value.ibkr_access_token }}",
+        "IBKR_ACCESS_TOKEN_SECRET": "{{ var.value.ibkr_access_token_secret }}",
+        "IBKR_SIGNATURE_KEY_PATH": "/opt/airflow/secrets/private_signature.pem",
+        "IBKR_ENCRYPTION_KEY_PATH": "/opt/airflow/secrets/private_encryption.pem",
+        "IBKR_DH_PARAM_PATH": "/opt/airflow/secrets/dhparam.pem",
+        "IBKR_LST_CACHE_MODE": "redis",
+        "IBKR_REDIS_URL": "{{ var.value.ibkr_redis_url }}",
+    },
+)
+```
+
+```python
+BashOperator(
+    task_id="fetch_aapl_history",
+    bash_command=(
+        "ibkr fetch-history --conid 265598 --period 1d --bar 1min "
+        "--output /tmp/ibkr-history.json"
+    ),
+    env={
+        "IBKR_BASE_URL": "{{ var.value.ibkr_base_url }}",
+        "IBKR_CONSUMER_KEY": "{{ var.value.ibkr_consumer_key }}",
+        "IBKR_REALM": "limited_poa",
+        "IBKR_ACCESS_TOKEN": "{{ var.value.ibkr_access_token }}",
+        "IBKR_ACCESS_TOKEN_SECRET": "{{ var.value.ibkr_access_token_secret }}",
+        "IBKR_SIGNATURE_KEY_PATH": "/opt/airflow/secrets/private_signature.pem",
+        "IBKR_ENCRYPTION_KEY_PATH": "/opt/airflow/secrets/private_encryption.pem",
+        "IBKR_DH_PARAM_PATH": "/opt/airflow/secrets/dhparam.pem",
+        "IBKR_LST_CACHE_MODE": "redis",
+        "IBKR_REDIS_URL": "{{ var.value.ibkr_redis_url }}",
+    },
+)
+```
+
+Airflow should treat exit code `0` as success and any nonzero exit code as task failure.
+Run `init-session` before protected IBKR calls. If IBKR returns `Bad Request: no bridge`, run `init-session` again; Redis caches OAuth Live Session Tokens, not brokerage bridge state.
+For long-running jobs, call `tickle` about once per minute to keep an already-initialized brokerage session alive.
+
+## API Surface
+
+Implemented REST/CLI commands:
+
+- `auth-status`: `iserver/auth/status`
+- `init-session`: `iserver/auth/ssodh/init`
+- `tickle`: `tickle`
+- `fetch-history`: `iserver/marketdata/history`
+- `stock-conid`: `trsrv/stocks`
+- `accounts`: `portfolio/accounts`
+- `brokerage-accounts`: `iserver/accounts`
+- `account-pnl`: `iserver/account/pnl/partitioned`
+- `account-summary`: `iserver/account/{account_id}/summary`
+- `portfolio-summary`: `portfolio/{account_id}/summary`
+- `ledger`: `portfolio/{account_id}/ledger`
+- `positions`: `portfolio/{account_id}/positions/{page}`
+- `positions-live`: `portfolio2/{account_id}/positions`
+- `trades`: `iserver/account/trades/`
+- `live-orders`: `iserver/account/orders`
+- `order algos`: `iserver/contract/{conid}/algos`
+- `order place`: `iserver/account/{account_id}/orders`
+- `order whatif`: `iserver/account/{account_id}/orders/whatif`
+- `order reply`: `iserver/reply/{reply_id}`
+- `order cancel`: `iserver/account/{account_id}/order/{order_id}`
+- `order modify`: `iserver/account/{account_id}/order/{order_id}`
+- `order status`: `iserver/account/order/status/{order_id}`
+- `quick-vwap-order`: interactive `trsrv/stocks` lookup followed by one VWAP
+  order submission
+
+Missing but relevant functions include typed response models for accounts,
+positions, trades, live orders, auth, and session calls.
+
+Historical data, stock conid lookup, and order placement have non-trivial typed request shapes today. The other implemented endpoints are still thin JSON passthroughs with little or no request structure.
+
+## Local fee-plan calculation
+
+```sh
+ibkr order fee-plan --orders-json '{"quantity":100,"price":100}' --pretty
+```
+
+This preserves the Rust implementation's local 10,000 notional threshold heuristic.
+It does not query fees or change an IBKR account pricing plan.
+
+## Release installation
+
+Releases are published to [SKKUGoon/cli-ibkr-go](https://github.com/SKKUGoon/cli-ibkr-go/releases).
+The included workflow packages Linux amd64 and macOS arm64 when a version tag
+is pushed to that repository. The first release version is `1.0.0` (`v1.0.0` tag).
+After that release is published, install with:
+
+```sh
+./deploy-ibkr.sh v1.0.0
+```
+
+The installer checks SHA-256 sums and installs `ibkr` into `~/.local/bin` by default.
+Override the destination with `IBKR_INSTALL_DIR`. Override the release repository with
+`IBKR_RELEASE_REPOSITORY` or the optional second argument. An existing `ibkr` at
+the installation destination is replaced.
+
+To publish from a committed checkout connected to this repository:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow builds the binaries and creates the GitHub release with SHA-256 checksums.
+Live IBKR and production database connectivity have not yet been validated.
