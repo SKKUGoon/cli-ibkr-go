@@ -15,13 +15,13 @@ This is a Go implementation, not a wrapper or fallback to the Rust executable.
 | `account-summary`, `portfolio-summary`, `ledger` | Same subcommands | Account-specific REST calls |
 | `positions`, `positions-live` | Same subcommands | Paged and uncached REST positions |
 | `trades`, `live-orders` | Same subcommands | Account/date filters, refresh flag |
-| `fetch-history` | Same subcommand | Raw JSON and optional best-effort warehouse bar upsert |
+| `fetch-history` | Same subcommand, extended | Period mode retains raw JSON; interactive/date-range mode merges bars with optional warehouse upsert |
 | `stock-conid` | Same subcommand | Optional active warehouse lookup, REST resolution, upsert |
 | `order algos` | Same subcommand | Up to eight IDs, semicolon query, description/parameter flags |
 | `order place`, `order modify` | Same subcommands | Alias normalization, validation, warning-answer loop |
 | `order whatif`, `order reply`, `order cancel`, `order status` | Same subcommands | Same REST request semantics |
 | `order fee-plan` | Same subcommand | Offline notional heuristic; no account pricing-plan change |
-| `quick-vwap-order` | Same subcommand | Editable inputs, payload review, default-no confirmation, individual warning prompts |
+| `quick-vwap-order` | `vwap-order` | Editable inputs, payload review, default-no confirmation, individual warning prompts |
 
 Global flags: `--env-file`, `--output`, `--pretty`, `--timeout-seconds`, `--version` / `-V`.
 Boolean value flags such as `--default-filtering false` and `--outside-rth false` accept

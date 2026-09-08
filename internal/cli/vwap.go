@@ -12,8 +12,8 @@ import (
 	"ibkr-go/ibkr"
 )
 
-func (app *application) addQuickVwapCommand() {
-	command := app.command("quick-vwap-order", "Interactively review and submit one VWAP limit order", nil)
+func (app *application) addVwapCommand() {
+	command := app.command("vwap-order", "Interactively review and submit one VWAP limit order", nil)
 	fields := map[string]*string{}
 	for _, name := range []string{"account-id", "ticker", "exchange", "side", "quantity", "limit-price", "start-time", "end-time", "max-percent-volume", "client-order-id-prefix"} {
 		fields[name] = stringFlag(command, name, "Initial "+name, false)

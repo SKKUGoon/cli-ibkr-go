@@ -62,7 +62,15 @@ func NewRoot(stdin io.Reader, stdout, stderr io.Writer) *cobra.Command {
 	app.addAccountCommands()
 	app.addMarketCommands()
 	app.addOrderCommands()
-	app.addQuickVwapCommand()
+	app.addVwapCommand()
+	root.AddGroup(&cobra.Group{ID: "commands", Title: "Commands:"}, &cobra.Group{ID: "interactive", Title: "Interactive utilities:"})
+	for _, command := range root.Commands() {
+		command.GroupID = "commands"
+		if command.Name() == "vwap-order" || command.Name() == "fetch-history" {
+			command.GroupID = "interactive"
+		}
+	}
+	root.SetHelpCommandGroupID("commands")
 	return root
 }
 func (app *application) command(name, description string, run func(*cobra.Command) (any, error)) *cobra.Command {

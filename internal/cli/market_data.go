@@ -47,43 +47,7 @@ func (app *application) warn(message string) {
 	fmt.Fprintln(app.root.ErrOrStderr(), "warning:", message)
 }
 func (app *application) addMarketCommands() {
-	history := app.command("fetch-history", "Fetch historical bars; optionally persist to IBKR_DATABASE", nil)
-	conid := stringFlag(history, "conid", "Contract ID", true)
-	period := stringFlag(history, "period", "History period", true)
-	bar := stringFlag(history, "bar", "Bar interval", true)
-	exchange := stringFlag(history, "exchange", "Exchange", false)
-	start := stringFlag(history, "start-time", "Start time", false)
-	outside := history.Flags().Bool("outside-rth", false, "Include outside regular trading hours")
-	history.Flags().Lookup("outside-rth").NoOptDefVal = ""
-	history.RunE = func(command *cobra.Command, _ []string) error {
-		value, err := app.withClient(command, func(ctx context.Context, client *ibkr.Client) (any, error) {
-			pool := app.connectOptionalDatabase(ctx)
-			if pool != nil {
-				defer pool.Close()
-			}
-			request := ibkr.HistoryRequest{Conid: *conid, Period: *period, Bar: *bar, Exchange: optionalString(command, "exchange", exchange), StartTime: optionalString(command, "start-time", start)}
-			if command.Flags().Changed("outside-rth") {
-				request.OutsideRTH = outside
-			}
-			response, err := client.FetchHistory(ctx, request)
-			if err != nil {
-				return nil, err
-			}
-			if pool != nil {
-				bars, err := database.ParseHistoryBars(*conid, response)
-				if err != nil {
-					app.warn("historical bars parsing failed; returning IBKR API result")
-				} else if _, err = database.UpsertHistoryBars(ctx, pool, bars); err != nil {
-					app.warn("historical bars database upsert failed; returning IBKR API result")
-				}
-			}
-			return response, nil
-		})
-		if err != nil {
-			return err
-		}
-		return app.writeJSON(value)
-	}
+	app.addHistoryCommand()
 	stock := app.command("stock-conid", "Resolve a stock contract, optionally using IBKR_DATABASE", nil)
 	symbol := stringFlag(stock, "symbol", "Stock symbol", true)
 	stockExchange := stringFlag(stock, "exchange", "Exchange filter", false)
@@ -124,5 +88,5 @@ func (app *application) addMarketCommands() {
 		}
 		return app.writeJSON(value)
 	}
-	app.root.AddCommand(history, stock)
+	app.root.AddCommand(stock)
 }

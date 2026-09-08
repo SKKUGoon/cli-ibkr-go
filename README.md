@@ -1,7 +1,7 @@
 # IBKR Go CLI
 
 Go port of the existing `ibkr-rs` OAuth-only REST implementation. The executable is named `ibkr`.
-The first migration preserves the existing command layout and optional database behavior.
+The Go CLI supports scripted REST commands and interactive utilities, with optional database persistence.
 The common/admin command split is intentionally deferred until parity is established.
 
 ## Build and check
@@ -106,7 +106,39 @@ go run ./cmd/ibkr fetch-history --conid 265598 --period 1d --bar 1min
 ibkr fetch-history --conid 265598 --period 1d --bar 1min --output /tmp/ibkr-history.json
 ```
 
-### 5. Place an order
+#### Interactive history and explicit dates
+
+Run `ibkr fetch-history` to enter the contract ID, dates, bar interval, end-date
+inclusion, and timezone. Provided flags are retained; only missing required
+values are prompted for. A fully specified command runs without prompts.
+
+```sh
+ibkr fetch-history
+ibkr fetch-history --conid 265598 --bar 1d
+ibkr fetch-history --conid 265598 --start-date 2026-09-01 --end-date 2026-09-07 --bar 1d
+ibkr fetch-history --conid 265598 --start-date 2026-09-01 --end-date 2026-09-07 --inclusive=false --timezone America/New_York --bar 5min --output history.json
+```
+
+`--start_date` and `--end_date` are also accepted. Dates use `YYYY-MM-DD`.
+The start date is always included; `--inclusive` defaults to `true` and controls
+only the end date. The default timezone is UTC. Use `--timezone America/New_York`
+for US local dates; daylight-saving transitions are respected. Inclusion is based
+on each returned bar's timestamp, not the entire duration spanned by a weekly/monthly bar.
+An empty or reversed range is rejected. Date flags cannot be combined with
+`--period` or `--start-time`; existing period requests retain the raw API response.
+
+Date-range requests run sequentially in bounded windows, merge and sort bars by
+timestamp, remove duplicates, and exclude timestamps outside the requested range.
+Their JSON includes `data`, `range`, `conid`, `requestCount`, and available bar scale
+metadata. They do not reuse window-specific highs, lows, or counts as aggregate metadata.
+A failed request or potentially truncated response aborts before output or database writes.
+Empty market sessions remain empty; the CLI does not synthesize missing bars.
+IBKR permissions and historical availability still apply. This behavior is covered
+by local mock tests; it has not been validated against live IBKR.
+
+Reference: [IBKR historical OHLC parameters](https://www.interactivebrokers.com/docs/web-api/api-reference/trading/trading-market-data/get-md-history).
+
+## 5. Place an order
 
 Order placement is non-interactive. The order input contains one order object or an array of order objects, passed inline with `--orders-json`. If IBKR returns warning prompts, the answers input must explicitly accept them by message substring or message id. Answers are layered from built-in defaults, the optional `IBKR_ORDERS_ANSWER_JSON` file path, optional `--answers-file`, and optional `--answers-json`; later layers override duplicate keys.
 Run `init-session` before `order algos`, `order place`, `order modify`, or other protected IServer order calls.
@@ -186,7 +218,7 @@ ibkr positions-live --account-id DU123456 --pretty
 
 ### Interactive quick VWAP order
 
-`quick-vwap-order` is an operator utility rather than an Airflow command. It is
+`vwap-order` is an operator utility rather than an Airflow command. It is
 listed separately at the bottom of `ibkr --help`. Missing values are prompted;
 flags can prefill common values. The utility resolves the ticker directly with
 IBKR, displays the complete payload, defaults submission confirmation to **no**,
@@ -195,7 +227,7 @@ and prompts separately for every warning returned by IBKR.
 ```bash
 ibkr --env-file /secure/path/ibkr.env init-session
 ibkr --env-file /secure/path/ibkr.env brokerage-accounts
-ibkr --env-file /secure/path/ibkr.env quick-vwap-order
+ibkr --env-file /secure/path/ibkr.env vwap-order
 ```
 
 The fixed order fields are `orderType=LMT`, `tif=DAY`, and `strategy=Vwap`.
@@ -352,7 +384,7 @@ Implemented REST/CLI commands:
 - `order cancel`: `iserver/account/{account_id}/order/{order_id}`
 - `order modify`: `iserver/account/{account_id}/order/{order_id}`
 - `order status`: `iserver/account/order/status/{order_id}`
-- `quick-vwap-order`: interactive `trsrv/stocks` lookup followed by one VWAP
+- `vwap-order`: interactive `trsrv/stocks` lookup followed by one VWAP
   order submission
 
 Missing but relevant functions include typed response models for accounts,
