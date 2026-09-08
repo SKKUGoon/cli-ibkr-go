@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Download Go releases from the public repository by default.
 version="${1:-}"
-repository="${2:-${IBKR_RELEASE_REPOSITORY:-SKKUGoon/cli-ibkr-go}}"
+readonly repository="SKKUGoon/cli-ibkr-go"
 install_dir="${IBKR_INSTALL_DIR:-${HOME}/.local/bin}"
-if [[ ! "$version" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]] || [[ ! "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-  echo 'Usage: ./deploy-ibkr.sh VERSION [OWNER/REPOSITORY]' >&2
+if [[ "$#" -ne 1 ]] || [[ ! "$version" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]; then
+  echo 'Usage: ./deploy-ibkr.sh VERSION' >&2
   exit 1
 fi
 case "$(uname -s):$(uname -m)" in

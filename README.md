@@ -381,9 +381,8 @@ After that release is published, install with:
 ```
 
 The installer checks SHA-256 sums and installs `ibkr` into `~/.local/bin` by default.
-Override the destination with `IBKR_INSTALL_DIR`. Override the release repository with
-`IBKR_RELEASE_REPOSITORY` or the optional second argument. An existing `ibkr` at
-the installation destination is replaced.
+Override the destination with `IBKR_INSTALL_DIR`. Downloads always come from
+`SKKUGoon/cli-ibkr-go`. An existing `ibkr` at the installation destination is replaced.
 
 To publish from a committed checkout connected to this repository:
 
