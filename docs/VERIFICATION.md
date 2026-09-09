@@ -7,6 +7,16 @@
   interactive inputs, renamed VWAP command, and explicit PostgreSQL opt-in.
 - Live IBKR requests and production PostgreSQL integration remain untested.
 
+## 2.0.0 release and server installation — 2026-09-09
+
+- GitHub release workflow 34316469688 passed formatting, vet, race tests and both builds.
+- Published `v2.0.0` with Linux amd64/macOS arm64 archives and SHA-256 checksums.
+- Updated `~/tools/deploy-ibkr.sh` on the `airflow` SSH host and ran it with `2.0.0`.
+- Installer verified the archive checksum and installed `~/.local/bin/ibkr`.
+- Remote `--version` returned `ibkr 2.0.0`; history and VWAP help commands passed,
+  displaying the renamed command, date options, and global `--database` flag.
+- These remote checks did not call IBKR or connect to PostgreSQL.
+
 ## Initial migration validation — 2026-09-08 (before publishing)
 
 - Go runtime used: go1.27.0, macOS arm64.
