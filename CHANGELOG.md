@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.1 — 2026-09-09
+
+- Group help by setup, session, accounts, positions/trades, market data, orders, and help.
+- Fix blocked Ctrl+C input cancellation; support Esc and empty-input Ctrl+D.
+- Protect prompt labels with a separate terminal input editor supporting Unicode, cursor
+  movement, Backspace/Delete, long input, and resizing. Restore terminal state on exit.
+- Add real PTY regression checks for editing, cancellation, and terminal restoration.
+
 ## 3.0.0 — 2026-09-09
 
 ### Breaking changes

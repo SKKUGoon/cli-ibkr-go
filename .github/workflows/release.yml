@@ -15,6 +15,11 @@ jobs:
       - run: test -z "$(gofmt -l .)"
       - run: go vet ./...
       - run: go test -race ./...
+      - name: Verify interactive terminal behavior
+        run: |
+          go build -o bin/ibkr ./cmd/ibkr
+          python3 -m pip install pexpect==4.9.0 pyte==0.8.2
+          python3 scripts/test_terminal.py
       - name: Build archives
         shell: bash
         run: |

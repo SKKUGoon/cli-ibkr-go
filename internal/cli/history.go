@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -38,7 +37,7 @@ func (app *application) addHistoryCommand() {
 		if !datesMode && (command.Flags().Changed("inclusive") || command.Flags().Changed("timezone")) {
 			return fmt.Errorf("inclusive and timezone require a date range")
 		}
-		prompt := prompter{bufio.NewReader(command.InOrStdin()), command.ErrOrStderr()}
+		prompt := newPrompter(command)
 		missing := *conid == "" || *bar == "" || (datesMode && (*startDate == "" || *endDate == ""))
 		if missing || *interactive {
 			fields := []struct {

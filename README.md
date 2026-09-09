@@ -259,6 +259,17 @@ Algo orders use the same order placement command with `strategy` and `strategy_p
 }
 ```
 
+## Interactive input and help
+
+Help groups commands by Setup, Session, Accounts, Positions & Trades, Market Data,
+Orders, and Help. Existing command names and flags are unchanged.
+
+Terminal prompts display the label/default above a separate input field. Backspace and
+Delete only edit that field; Unicode input, cursor keys, long lines, and terminal resizing
+are supported. Enter accepts the input (or keeps the displayed default when empty).
+Ctrl+C or Esc cancels; Ctrl+D cancels an empty field. Cancellation restores the terminal
+and exits with status 130. Piped input continues to use newline-delimited values.
+
 ## Configuration
 
 Run `ibkr configure` to import your existing credentials and files interactively:
@@ -428,11 +439,11 @@ It does not query fees or change an IBKR account pricing plan.
 
 Releases are published to [SKKUGoon/cli-ibkr-go](https://github.com/SKKUGoon/cli-ibkr-go/releases).
 The included workflow packages Linux amd64 and macOS arm64 when a version tag
-is pushed to that repository. The current release version is `3.0.0` (`v3.0.0` tag).
+is pushed to that repository. The current release version is `3.0.1` (`v3.0.1` tag).
 After that release is published, install with:
 
 ```sh
-./deploy-ibkr.sh v3.0.0
+./deploy-ibkr.sh v3.0.1
 ```
 
 The installer checks SHA-256 sums and installs `ibkr` into `~/.local/bin` by default.
@@ -442,8 +453,8 @@ Override the destination with `IBKR_INSTALL_DIR`. Downloads always come from
 To publish from a committed checkout connected to this repository:
 
 ```sh
-git tag v3.0.0
-git push origin v3.0.0
+git tag v3.0.1
+git push origin v3.0.1
 ```
 
 The workflow builds the binaries and creates the GitHub release with SHA-256 checksums.

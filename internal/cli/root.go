@@ -66,14 +66,29 @@ func NewRoot(stdin io.Reader, stdout, stderr io.Writer) *cobra.Command {
 	app.addMarketCommands()
 	app.addOrderCommands()
 	app.addVwapCommand()
-	root.AddGroup(&cobra.Group{ID: "commands", Title: "Commands:"}, &cobra.Group{ID: "interactive", Title: "Interactive utilities:"})
-	for _, command := range root.Commands() {
-		command.GroupID = "commands"
-		if command.Name() == "configure" || command.Name() == "vwap-order" || command.Name() == "fetch-history" {
-			command.GroupID = "interactive"
+	groups := []struct {
+		id, title string
+		commands  []string
+	}{
+		{"setup", "Setup:", []string{"configure", "env", "oauth"}},
+		{"session", "Session:", []string{"init-session", "auth-status", "tickle"}},
+		{"accounts", "Accounts:", []string{"accounts", "brokerage-accounts", "account-summary", "portfolio-summary", "account-pnl", "ledger"}},
+		{"positions", "Positions & Trades:", []string{"positions", "positions-live", "trades"}},
+		{"market", "Market Data:", []string{"stock-conid", "fetch-history"}},
+		{"orders", "Orders:", []string{"order", "live-orders", "vwap-order"}},
+		{"help", "Help:", []string{"help"}},
+	}
+	for _, group := range groups {
+		root.AddGroup(&cobra.Group{ID: group.id, Title: group.title})
+		for _, command := range root.Commands() {
+			for _, name := range group.commands {
+				if command.Name() == name {
+					command.GroupID = group.id
+				}
+			}
 		}
 	}
-	root.SetHelpCommandGroupID("commands")
+	root.SetHelpCommandGroupID("help")
 	return root
 }
 func (app *application) command(name, description string, run func(*cobra.Command) (any, error)) *cobra.Command {

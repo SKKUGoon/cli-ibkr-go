@@ -151,7 +151,7 @@ func TestLocalCommandsOutputAndValidation(t *testing.T) {
 		t.Fatal(stdout, stderr, err)
 	}
 	stdout, _, err = execute("--help")
-	if err != nil || !strings.Contains(stdout, "vwap-order") || !strings.Contains(stdout, "Interactive utilities:") || strings.Contains(stdout, "quick-vwap-order") {
+	if err != nil || !strings.Contains(stdout, "vwap-order") || !strings.Contains(stdout, "Orders:") || strings.Contains(stdout, "quick-vwap-order") {
 		t.Fatal(stdout, err)
 	}
 	for _, args := range [][]string{{"positions"}, {"positions-live", "--account-id", "DU1", "--direction", "x"}, {"order", "place"}, {"order", "fee-plan", "--orders-json", "[]"}, {"fetch-history", "--conid", "1"}, {"unknown"}} {

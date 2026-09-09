@@ -70,8 +70,9 @@ absolute path with `--env-file`; generating new keys is not required for an exis
 - Invalid dotenv input fails rather than being silently ignored.
 - `--compete=false` and `--force=false` are supported; the source's true-default clap switches
   cannot express those values. Unknown commands fail with empty stdout.
-- Interactive prompts use line input with visible editable defaults instead of dialoguer's
-  terminal widgets. Side choices accept BUY/SELL. Prompt text and help formatting differ.
+- Terminal prompts use a protected input field with Unicode editing and Ctrl+C/Esc cancellation.
+  Defaults are shown above the input; Enter retains them. Piped input remains line-based.
+  Side choices accept BUY/SELL. Help groups commands by function.
 - Warning logging honors the common global and worker-module `IBKR_LOG` levels;
   Rust-specific tracing span-filter expressions are not implemented.
 - Results written with `--output` use private permissions for newly created files.

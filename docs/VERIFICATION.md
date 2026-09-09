@@ -1,5 +1,14 @@
 # Verification
 
+## 3.0.1 local validation — 2026-09-09
+
+- Formatting, vet, race tests, native build, and temporary OpenSSL material tests passed.
+- Real PTY tests (`uv run --with pexpect --with pyte python scripts/test_terminal.py`)
+  passed: Ctrl+C/Esc/Ctrl+D, external SIGINT, Korean editing, arrows/Delete/Backspace,
+  long input, resize, multiple prompts, and canonical/echo terminal restoration.
+- Tests use temporary HOME directories and synthetic settings; no live OAuth or orders.
+- Functional help group membership is covered by Go tests. PTY checks also run in CI/release.
+
 ## 2.0.0 local validation — 2026-09-09
 
 - Formatting, `go vet ./...`, `go test -race ./...`, and native build passed.

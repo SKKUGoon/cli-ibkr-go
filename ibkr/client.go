@@ -108,4 +108,4 @@ func (client *Client) sendJSON(ctx context.Context, phase, method, endpoint stri
 	return json.RawMessage(raw), nil
 }
 
-var Version = "3.0.0"
+var Version = "3.0.1"

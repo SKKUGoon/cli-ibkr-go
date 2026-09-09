@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,7 +23,7 @@ func (app *application) addVwapCommand() {
 			return fmt.Errorf("side must be buy or sell")
 		}
 		value, err := app.withClient(command, func(ctx context.Context, client *ibkr.Client) (any, error) {
-			prompt := prompter{bufio.NewReader(app.root.InOrStdin()), app.root.ErrOrStderr()}
+			prompt := newPrompter(command)
 			input, ticker, exchange, err := app.promptVwapInput(prompt, fields)
 			if err != nil {
 				return nil, err

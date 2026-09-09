@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -62,7 +61,7 @@ func (app *application) importAndSaveConfiguration(command *cobra.Command) error
 	if err != nil {
 		return err
 	}
-	prompt := prompter{input: bufio.NewReader(command.InOrStdin()), output: command.ErrOrStderr()}
+	prompt := newPrompter(command)
 	fmt.Fprintf(prompt.output, "설정 저장 위치: %s\n인증 정보는 기존 .env에서 가져옵니다.\n", destination)
 	initialSource := ""
 	if _, err := os.Stat(destination); err == nil {
