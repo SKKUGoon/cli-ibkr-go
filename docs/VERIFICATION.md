@@ -1,4 +1,13 @@
-# Verification — 2026-09-08
+# Verification
+
+## 2.0.0 local validation — 2026-09-09
+
+- Formatting, `go vet ./...`, `go test -race ./...`, and native build passed.
+- Tests cover date inclusivity, DST boundaries, range merging and failure handling,
+  interactive inputs, renamed VWAP command, and explicit PostgreSQL opt-in.
+- Live IBKR requests and production PostgreSQL integration remain untested.
+
+## Initial migration validation — 2026-09-08 (before publishing)
 
 - Go runtime used: go1.27.0, macOS arm64.
 - `go vet ./...`: passed.

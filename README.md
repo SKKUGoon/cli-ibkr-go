@@ -405,11 +405,11 @@ It does not query fees or change an IBKR account pricing plan.
 
 Releases are published to [SKKUGoon/cli-ibkr-go](https://github.com/SKKUGoon/cli-ibkr-go/releases).
 The included workflow packages Linux amd64 and macOS arm64 when a version tag
-is pushed to that repository. The first release version is `1.0.0` (`v1.0.0` tag).
+is pushed to that repository. The current release version is `2.0.0` (`v2.0.0` tag).
 After that release is published, install with:
 
 ```sh
-./deploy-ibkr.sh v1.0.0
+./deploy-ibkr.sh v2.0.0
 ```
 
 The installer checks SHA-256 sums and installs `ibkr` into `~/.local/bin` by default.
@@ -419,8 +419,8 @@ Override the destination with `IBKR_INSTALL_DIR`. Downloads always come from
 To publish from a committed checkout connected to this repository:
 
 ```sh
-git tag v1.0.0
-git push origin v1.0.0
+git tag v2.0.0
+git push origin v2.0.0
 ```
 
 The workflow builds the binaries and creates the GitHub release with SHA-256 checksums.
@@ -443,3 +443,5 @@ The same default applies to interactive commands. `--database=false` disables DB
 access explicitly. When enabled, missing/unavailable database configuration retains
 the existing best-effort behavior with warnings on stderr. OAuth Redis token caching
 is separate and continues to use its existing cache settings.
+
+See [CHANGELOG.md](CHANGELOG.md) for release changes and [docs/VERIFICATION.md](docs/VERIFICATION.md) for validation scope.
