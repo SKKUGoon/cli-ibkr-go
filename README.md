@@ -32,7 +32,7 @@ See [migration notes](docs/MIGRATION.md) for parity scope and deliberate differe
 `ibkr` is an OAuth-only IBKR CLI for Airflow tasks. Airflow invokes one command, reads exit status, and handles scheduling or retries.
 
 Success writes JSON to stdout and exits `0`. Failures write diagnostics to stderr and exit nonzero.
-Most commands leave persistence to Airflow: use stdout or `--output`, then let the DAG write results to storage. `fetch-history` also writes bars to `warehouse.ibkr_bars` when `IBKR_DATABASE` is configured.
+Most commands leave persistence to Airflow: use stdout or `--output`, then let the DAG write results to storage. `--database` explicitly enables database integration: `fetch-history` writes bars to `warehouse.ibkr_bars`, and `stock-conid` uses `warehouse.conids` for lookup/storage. Setting `IBKR_DATABASE` alone never enables either behavior.
 
 ## Explicit Non-Goals
 
@@ -84,7 +84,7 @@ ibkr init-session
 
 ### 3. Look up a stock conid
 
-This looks up an active row in `warehouse.conids` first, then falls back to IBKR's stock lookup endpoint when the symbol is not cached or the database is unavailable. It returns the selected symbol, English name, conid, and exchange. If multiple contracts match, the command fails so the caller can provide a more specific `--exchange` or filter choice.
+By default this calls IBKR's stock lookup endpoint directly. With `--database`, it first looks up an active row in `warehouse.conids`, then falls back to IBKR when the symbol is not cached or the database is unavailable and attempts to store the resolved contract. It returns the selected symbol, English name, conid, and exchange. If multiple contracts match, the command fails so the caller can provide a more specific `--exchange` or filter choice.
 
 ```bash
 # Local Development
@@ -96,7 +96,7 @@ ibkr stock-conid --symbol AAPL --exchange NASDAQ
 
 ### 4. Fetch historical bars
 
-This requests historical market-data bars for a known IBKR conid. By default the JSON response goes to stdout; use `--output` when Airflow should hand a file to a downstream task. If `IBKR_DATABASE` is set and connectable, returned bars are also upserted into `warehouse.ibkr_bars`; database persistence is best-effort and does not change the JSON output.
+This requests historical market-data bars for a known IBKR conid. By default the JSON response goes to stdout; use `--output` when Airflow should hand a file to a downstream task. Only with `--database` and a configured, connectable `IBKR_DATABASE` are returned bars also upserted into `warehouse.ibkr_bars`; database persistence is best-effort and does not change the JSON output.
 
 ```bash
 # Local Development
@@ -425,3 +425,21 @@ git push origin v1.0.0
 
 The workflow builds the binaries and creates the GitHub release with SHA-256 checksums.
 Live IBKR and production database connectivity have not yet been validated.
+
+## Explicit database access
+
+All commands default to output without PostgreSQL lookup or persistence, even if
+`IBKR_DATABASE` is configured. Add the global `--database` flag to enable existing
+database functionality in `fetch-history` and `stock-conid`. It does not add database
+functionality to other commands. Output still goes to stdout or `--output`.
+
+```sh
+ibkr fetch-history --conid 265598 --period 1d --bar 1min
+ibkr fetch-history --conid 265598 --period 1d --bar 1min --database
+ibkr stock-conid --symbol AAPL --database
+```
+
+The same default applies to interactive commands. `--database=false` disables DB
+access explicitly. When enabled, missing/unavailable database configuration retains
+the existing best-effort behavior with warnings on stderr. OAuth Redis token caching
+is separate and continues to use its existing cache settings.

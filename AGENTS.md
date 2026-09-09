@@ -8,6 +8,7 @@ This repository ports the OAuth-only Rust IBKR CLI into Go. The executable is `i
 - Keep named functions, explicit typed interfaces, small focused modules, and propagated errors.
 - Common/admin command reorganization is a subsequent change. Optional database integration is
   currently confined to stock-conid and fetch-history, as in the Rust implementation.
+- PostgreSQL lookup and persistence require the global `--database` flag; default output must never connect to PostgreSQL.
 - JSON results go to stdout (or --output); prompts and diagnostics go to stderr. `env` is text.
 - Never copy real dotenv files, private keys, tokens, or database credentials into this repository.
 - Tests must not contact live IBKR or the user's server. Use the local OAuth peer, Redis emulator,

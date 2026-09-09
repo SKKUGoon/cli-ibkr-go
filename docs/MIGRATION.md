@@ -46,7 +46,9 @@ keys is not required to use an existing IBKR OAuth registration.
 - Unknown or rejected automatic warnings fail. The reply loop retains the Rust iteration limit.
 - The fee-plan command preserves the source's 10,000 notional threshold calculation.
   It is a local heuristic, not a verified universal IBKR commission schedule.
-- Stock cache lookup and history persistence retain the existing best-effort database behavior.
+- Stock cache lookup and history persistence require the global `--database` flag;
+  setting `IBKR_DATABASE` alone does not enable access. Once enabled, they retain the
+  existing best-effort database behavior.
   Missing/unavailable DB connections are diagnosed on stderr. Ambiguous active contracts fail.
 - Database schema is not created or migrated. Existing `warehouse.conids` and
   `warehouse.ibkr_bars` are required when database integration is configured.

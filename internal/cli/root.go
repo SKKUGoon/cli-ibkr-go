@@ -18,6 +18,7 @@ type application struct {
 	environment     config.Environment
 	envFile, output string
 	pretty          bool
+	useDatabase     bool
 	timeout         uint64
 	root            *cobra.Command
 }
@@ -36,6 +37,7 @@ func NewRoot(stdin io.Reader, stdout, stderr io.Writer) *cobra.Command {
 	root.SetVersionTemplate("ibkr {{.Version}}\n")
 	root.PersistentFlags().StringVar(&app.envFile, "env-file", "", "Load a specific dotenv file (process environment takes precedence)")
 	root.PersistentFlags().StringVar(&app.output, "output", "", "Write result to file")
+	root.PersistentFlags().BoolVar(&app.useDatabase, "database", false, "Enable IBKR_DATABASE lookup/storage for supported commands")
 	root.PersistentFlags().BoolVar(&app.pretty, "pretty", false, "Pretty-print JSON")
 	root.PersistentFlags().Uint64Var(&app.timeout, "timeout-seconds", 30, "HTTP request timeout")
 	root.PersistentPreRunE = func(command *cobra.Command, _ []string) error {

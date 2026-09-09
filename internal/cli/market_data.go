@@ -14,6 +14,9 @@ import (
 )
 
 func (app *application) connectOptionalDatabase(ctx context.Context) *pgxpool.Pool {
+	if !app.useDatabase {
+		return nil
+	}
 	connection := app.environment["IBKR_DATABASE"]
 	if connection == "" {
 		app.warn("IBKR_DATABASE is not set; skipping local database lookup or persistence")
@@ -48,7 +51,7 @@ func (app *application) warn(message string) {
 }
 func (app *application) addMarketCommands() {
 	app.addHistoryCommand()
-	stock := app.command("stock-conid", "Resolve a stock contract, optionally using IBKR_DATABASE", nil)
+	stock := app.command("stock-conid", "Resolve a stock contract; use --database for DB lookup/storage", nil)
 	symbol := stringFlag(stock, "symbol", "Stock symbol", true)
 	stockExchange := stringFlag(stock, "exchange", "Exchange filter", false)
 	filtering := stock.Flags().Bool("default-filtering", true, "Select US contracts by default")
