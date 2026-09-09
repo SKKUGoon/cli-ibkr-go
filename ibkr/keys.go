@@ -61,3 +61,18 @@ func readDHParameters(path string) (dhParameters, error) {
 	}
 	return params, nil
 }
+
+// ValidateOAuthKeyFiles parses local OAuth materials without contacting IBKR.
+func ValidateOAuthKeyFiles(config Config) error {
+	for _, path := range []string{config.SignatureKeyPath, config.EncryptionKeyPath} {
+		key, err := readPrivateKey(path)
+		if err != nil {
+			return err
+		}
+		if err := key.Validate(); err != nil {
+			return fmt.Errorf("invalid RSA key: %s", path)
+		}
+	}
+	_, err := readDHParameters(config.DHParamPath)
+	return err
+}

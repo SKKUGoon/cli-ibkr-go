@@ -48,3 +48,42 @@ func TestConfigurationDefaultsValidationAndRedaction(t *testing.T) {
 		t.Fatal("missing token")
 	}
 }
+
+func TestDefaultConfigurationIgnoresWorkingDirectoryAndParents(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	parent := t.TempDir()
+	child := filepath.Join(parent, "child")
+	if err := os.Mkdir(child, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, directory := range []string{parent, child} {
+		if err := os.WriteFile(filepath.Join(directory, ".env"), []byte("IBKR_REALM=unwanted\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(child)
+	environment, err := LoadEnvironment("")
+	if err != nil || environment["IBKR_REALM"] == "unwanted" {
+		t.Fatal("loaded unrelated dotenv", err)
+	}
+	destination, err := DefaultEnvFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(destination), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(destination, []byte("IBKR_REALM=dedicated\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	environment, err = LoadEnvironment("")
+	if err != nil || environment["IBKR_REALM"] != "dedicated" {
+		t.Fatal("dedicated configuration not loaded", err)
+	}
+	explicit := filepath.Join(parent, ".env")
+	environment, err = LoadEnvironment(explicit)
+	if err != nil || environment["IBKR_REALM"] != "unwanted" {
+		t.Fatal("explicit dotenv not loaded", err)
+	}
+}

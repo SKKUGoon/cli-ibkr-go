@@ -17,31 +17,21 @@ type Environment map[string]string
 func LoadEnvironment(envFile string) (Environment, error) {
 	environment := Environment{}
 	if envFile == "" {
-		cwd, err := os.Getwd()
+		var err error
+		envFile, err = DefaultEnvFile()
 		if err != nil {
 			return nil, err
 		}
-		for {
-			candidate := filepath.Join(cwd, ".env")
-			_, err := os.Stat(candidate)
-			if err == nil {
-				envFile = candidate
-				break
-			}
-			if !os.IsNotExist(err) {
-				return nil, err
-			}
-			parent := filepath.Dir(cwd)
-			if parent == cwd {
-				break
-			}
-			cwd = parent
+		if _, err := os.Stat(envFile); os.IsNotExist(err) {
+			envFile = ""
+		} else if err != nil {
+			return nil, err
 		}
 	}
 	if envFile != "" {
 		values, err := godotenv.Read(envFile)
 		if err != nil {
-			return nil, fmt.Errorf("load dotenv %s: %w", envFile, err)
+			return nil, fmt.Errorf("cannot read or parse dotenv file: %s", envFile)
 		}
 		for key, value := range values {
 			environment[key] = value
@@ -107,4 +97,13 @@ func (env Environment) Report() string {
 		fmt.Fprintf(&report, "%s=%s\n", key, value)
 	}
 	return report.String()
+}
+
+// DefaultEnvFile is independent of the working directory.
+func DefaultEnvFile() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "ibkr", ".env"), nil
 }

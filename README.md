@@ -46,7 +46,7 @@ Most commands leave persistence to Airflow: use stdout or `--output`, then let t
 
 ## Example
 
-For local development, copy `.env.example` to `.env` and fill in the IBKR values. `ibkr` loads `.env` automatically at startup. On a server, provide the same `IBKR_*` variables through the process environment or your scheduler's secret manager.
+For local development, copy `.env.example` to `.env` and fill in the IBKR values. Select that file explicitly with `--env-file .env`, or import it using `ibkr configure`. On a server, you can also provide the same `IBKR_*` variables through the process environment or your scheduler's secret manager.
 
 ### 1. Generate OAuth materials
 
@@ -261,13 +261,36 @@ Algo orders use the same order placement command with `strategy` and `strategy_p
 
 ## Configuration
 
-Configuration comes from `.env` and process environment variables. Local development can use a `.env` file in the current directory. Server and Airflow usage should provide the same variables through the runtime environment or a secret manager.
+Run `ibkr configure` to import your existing credentials and files interactively:
 
 ```sh
-cp .env.example .env
+ibkr configure
+# Existing .env path: /secure/path/.env
+# dhparam.pem path: Enter to keep the imported path
+# private_encryption.pem path: Enter to keep the imported path
+# private_signature.pem path: Enter to keep the imported path
+# order_answers.json path: Enter to keep the imported path
+ibkr init-session
 ```
 
-By default, `ibkr` searches for `.env` from the current directory upward. To use a specific dotenv file, pass `--env-file`; values already present in the process environment take precedence over values in the file.
+Tokens are read from the selected `.env` and are never printed or requested again.
+Missing required credentials must be filled in the source `.env` before importing.
+Relative material paths are resolved against the source `.env` directory; `~/` is supported.
+All four files are copied into a private `materials-*` directory under `~/.config/ibkr/`,
+and the saved `~/.config/ibkr/.env` references their absolute paths. Only recognized IBKR
+settings are imported. RSA keys, DH parameters, and the order-answer JSON object are
+validated locally before activating the configuration; no IBKR request is made.
+`order_answers.json` controls order confirmations, not OAuth authentication.
+Files use mode `0600`, and newly created configuration/material directories use `0700`.
+Re-running `configure` defaults to the saved configuration; Enter keeps each file path.
+Failed setup leaves the active configuration intact. Previous material generations are
+retained so an already-running process can finish using them.
+
+By default, `ibkr` reads only `~/.config/ibkr/.env`. It never searches the current directory
+or any parent for `.env`. Existing process environment variables still override file values,
+including empty values, preserving Airflow environment-based configuration.
+To select a different file, use `--env-file`; it replaces the default file rather than merging it.
+Use this flag on `configure` to select a custom save destination as well.
 
 ```sh
 ibkr --env-file /secure/path/ibkr.env init-session
@@ -405,11 +428,11 @@ It does not query fees or change an IBKR account pricing plan.
 
 Releases are published to [SKKUGoon/cli-ibkr-go](https://github.com/SKKUGoon/cli-ibkr-go/releases).
 The included workflow packages Linux amd64 and macOS arm64 when a version tag
-is pushed to that repository. The current release version is `2.0.0` (`v2.0.0` tag).
+is pushed to that repository. The current release version is `3.0.0` (`v3.0.0` tag).
 After that release is published, install with:
 
 ```sh
-./deploy-ibkr.sh v2.0.0
+./deploy-ibkr.sh v3.0.0
 ```
 
 The installer checks SHA-256 sums and installs `ibkr` into `~/.local/bin` by default.
@@ -419,8 +442,8 @@ Override the destination with `IBKR_INSTALL_DIR`. Downloads always come from
 To publish from a committed checkout connected to this repository:
 
 ```sh
-git tag v2.0.0
-git push origin v2.0.0
+git tag v3.0.0
+git push origin v3.0.0
 ```
 
 The workflow builds the binaries and creates the GitHub release with SHA-256 checksums.

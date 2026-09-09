@@ -61,6 +61,7 @@ func NewRoot(stdin io.Reader, stdout, stderr io.Writer) *cobra.Command {
 	oauth.RunE = func(*cobra.Command, []string) error { return fmt.Errorf("an oauth subcommand is required") }
 	oauth.AddCommand(generate)
 	root.AddCommand(env, oauth)
+	app.addConfigureCommand()
 	app.addAccountCommands()
 	app.addMarketCommands()
 	app.addOrderCommands()
@@ -68,7 +69,7 @@ func NewRoot(stdin io.Reader, stdout, stderr io.Writer) *cobra.Command {
 	root.AddGroup(&cobra.Group{ID: "commands", Title: "Commands:"}, &cobra.Group{ID: "interactive", Title: "Interactive utilities:"})
 	for _, command := range root.Commands() {
 		command.GroupID = "commands"
-		if command.Name() == "vwap-order" || command.Name() == "fetch-history" {
+		if command.Name() == "configure" || command.Name() == "vwap-order" || command.Name() == "fetch-history" {
 			command.GroupID = "interactive"
 		}
 	}

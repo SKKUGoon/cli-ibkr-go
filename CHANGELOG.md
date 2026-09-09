@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.0.0 — 2026-09-09
+
+### Breaking changes
+
+- Stop searching the working directory and parents for `.env`. The default is now
+  `~/.config/ibkr/.env`. Import existing settings with `ibkr configure`, or select a file
+  explicitly with `--env-file`. Process environment variables retain their precedence.
+
+### Added
+
+- Interactive `configure` imports credentials from an existing `.env`, then prompts for
+  three PEM paths and `order_answers.json`, retaining supplied paths on Enter.
+- Validate and copy selected files into private configuration storage before atomically
+  activating the new `.env`. Failed setup preserves the active configuration.
+- Re-running setup uses saved settings; `--env-file` supports a custom save destination.
+- Credentials are never printed; malformed dotenv errors do not echo file contents.
+
 ## 2.0.0 — 2026-09-09
 
 ### Breaking changes

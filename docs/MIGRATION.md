@@ -29,14 +29,16 @@ both separate values and `=false` syntax. Session initialization remains explici
 
 ## Configuration and credentials
 
-The same `IBKR_*` variables are accepted. `.env` is found by searching upward from the
-working directory; process variables override it. `--env-file` selects an explicit file.
+The same `IBKR_*` variables are accepted. The default file is `~/.config/ibkr/.env`;
+working-directory and parent `.env` files are never searched. Process variables override
+the selected file. `--env-file` replaces the default file with an explicit file.
+Run `ibkr configure` to import an existing `.env` and validate/copy its OAuth and order-answer files.
 PKCS#1 and PKCS#8 RSA private keys are accepted. RSA-SHA256 signs the token exchange;
 HMAC-SHA256 signs protected requests after the DH/HMAC-SHA1 session derivation and proof check.
 
-No real `.env`, PEM, PKCS#8, token, or server credentials are copied. Existing key files
-can be referenced by absolute path in the new environment configuration; generating new
-keys is not required to use an existing IBKR OAuth registration.
+No credentials are included in this repository. `configure` copies user-selected files
+into a private configuration directory. Existing key files can also be referenced by
+absolute path with `--env-file`; generating new keys is not required for an existing registration.
 
 ## Preserved application policies
 
@@ -73,7 +75,7 @@ keys is not required to use an existing IBKR OAuth registration.
 - Warning logging honors the common global and worker-module `IBKR_LOG` levels;
   Rust-specific tracing span-filter expressions are not implemented.
 - Results written with `--output` use private permissions for newly created files.
-- Go build/release files replace Cargo and Rust-target packaging. No releases are published.
+- Go build/release files replace Cargo and Rust-target packaging. Releases are published on GitHub.
 
 ## Validation commands
 
